@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TrailerTap — Never Miss a Release</title>
+  <meta name="description" content="Identify movie trailers and TV previews from audio, screenshots, or social links." />
+  <meta name="theme-color" content="#00d4ff" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #ffffff;
+      --text: #1a1a1a;
+      --muted: #666666;
+      --border: rgba(0,0,0,0.08);
+      --cyan: #00d4ff;
+      --pink: #ff2e5e;
+      --orange: #ffa500;
+      --card: #f8f9fa;
+    }
+    html { scroll-behavior: smooth; }
+    body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); overflow-x: hidden; -webkit-font-smoothing: antialiased; }
+    h1,h2,h3,h4 { font-family: 'Space Grotesk', sans-serif; }
+
+    .ambient { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+    .ambient::before { content: ''; position: absolute; top: -20%; left: -10%; width: 70%; height: 70%; background: radial-gradient(circle, rgba(255,46,94,0.06) 0%, transparent 70%); filter: blur(80px); animation: drift1 25s ease-in-out infinite; }
+    .ambient::after { content: ''; position: absolute; bottom: -10%; right: -10%; width: 60%; height: 60%; background: radial-gradient(circle, rgba(0,212,255,0.06) 0%, transparent 70%); filter: blur(80px); animation: drift2 30s ease-in-out infinite; }
+    @keyframes drift1 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(30px,-20px)} }
+    @keyframes drift2 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(-30px,20px)} }
+
+    .container { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+
+    /* NAV */
+    nav { padding: 20px 0; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); }
+    .logo { display: flex; align-items: center; gap: 10px; }
+    .logo svg { width: 44px; height: 44px; }
+    .logo-text { font-family: 'Space Grotesk', sans-serif; font-size: 1.3rem; font-weight: 700; }
+    .nav-btn { font-family: 'Space Grotesk', sans-serif; font-size: 0.85rem; font-weight: 600; color: var(--pink); border: 1.5px solid var(--pink); padding: 8px 20px; border-radius: 100px; text-decoration: none; transition: all 0.2s; cursor: pointer; background: none; }
+    .nav-btn:hover { background: var(--pink); color: white; }
+
+    /* HERO */
+    .hero { padding: 60px 0 50px; }
+    .hero-eyebrow { display: inline-flex; align-items: center; gap: 8px; font-size: 0.78rem; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; background: linear-gradient(135deg, var(--cyan), var(--pink)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 18px; }
+    .hero-eyebrow::before { content: ''; display: inline-block; width: 24px; height: 2px; background: linear-gradient(135deg, var(--cyan), var(--pink)); }
+    .hero h1 { font-size: clamp(2.2rem, 6vw, 3.8rem); font-weight: 800; line-height: 1.1; letter-spacing: -1.5px; margin-bottom: 20px; }
+    .hero h1 .t{color:#ff8c00}.hero h1 .r{color:#ff4400}.hero h1 .a{color:#cc44ff}.hero h1 .i{color:#4499ff}.hero h1 .l{color:#2266ff}.hero h1 .e{color:#00aaff}.hero h1 .r2{color:#00ccff}.hero h1 .T2{color:#ff44aa}.hero h1 .a2{color:#ff2255}.hero h1 .p{color:#4488ff}.hero h1 .remembers{color:var(--pink)}
+    .hero-sub { font-size: 1.05rem; color: var(--muted); line-height: 1.75; max-width: 500px; margin-bottom: 36px; }
+    .btn-primary { display: inline-flex; align-items: center; gap: 8px; background: linear-gradient(135deg, var(--pink), #ff8a4c); color: white; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 1rem; padding: 14px 32px; border-radius: 100px; border: none; cursor: pointer; text-decoration: none; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 8px 24px rgba(255,46,94,0.25); }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(255,46,94,0.35); }
+    .hero-trust { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 18px; font-size: 0.82rem; color: var(--muted); }
+    .hero-trust span::before { content: '✓ '; color: var(--cyan); font-weight: 700; }
+
+    /* APP SECTION */
+    .app-section { padding: 60px 0; }
+    .app-section h2 { font-size: clamp(1.6rem, 3.5vw, 2.4rem); font-weight: 800; letter-spacing: -1px; margin-bottom: 8px; }
+    .app-section > p { color: var(--muted); font-size: 1rem; margin-bottom: 40px; }
+
+    .tabs { display: flex; gap: 8px; margin-bottom: 32px; flex-wrap: wrap; }
+    .tab { font-family: 'Space Grotesk', sans-serif; font-size: 0.9rem; font-weight: 600; padding: 10px 24px; border-radius: 100px; border: 1.5px solid var(--border); background: white; cursor: pointer; transition: all 0.2s; color: var(--muted); }
+    .tab.active { background: var(--text); color: white; border-color: var(--text); }
+    .tab:hover:not(.active) { border-color: var(--cyan); color: var(--text); }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    .input-area { background: white; border: 1.5px solid var(--border); border-radius: 20px; padding: 32px; box-shadow: 0 4px 20px rgba(0,0,0,0.04); }
+
+    /* Screenshot upload */
+    .upload-zone { border: 2px dashed rgba(0,212,255,0.3); border-radius: 16px; padding: 48px 24px; text-align: center; cursor: pointer; transition: all 0.2s; background: rgba(0,212,255,0.02); }
+    .upload-zone:hover { border-color: var(--cyan); background: rgba(0,212,255,0.04); }
+    .upload-zone.dragover { border-color: var(--cyan); background: rgba(0,212,255,0.06); }
+    .upload-icon { font-size: 3rem; margin-bottom: 12px; }
+    .upload-zone p { color: var(--muted); font-size: 0.95rem; }
+    .upload-zone p strong { color: var(--text); }
+    #file-input { display: none; }
+    #preview-img { max-width: 100%; max-height: 300px; border-radius: 12px; margin-top: 16px; display: none; }
+
+    /* Link input */
+    .link-input-wrap { display: flex; gap: 12px; flex-wrap: wrap; }
+    .link-input { flex: 1; min-width: 200px; font-family: 'DM Sans', sans-serif; font-size: 1rem; padding: 14px 20px; border: 1.5px solid var(--border); border-radius: 100px; outline: none; transition: border-color 0.2s; }
+    .link-input:focus { border-color: var(--cyan); }
+
+    /* Audio */
+    .audio-btn { width: 100%; padding: 20px; border: none; border-radius: 16px; background: linear-gradient(135deg, rgba(0,212,255,0.08), rgba(255,46,94,0.06)); cursor: pointer; font-family: 'Space Grotesk', sans-serif; font-size: 1.1rem; font-weight: 700; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 12px; }
+    .audio-btn:hover { background: linear-gradient(135deg, rgba(0,212,255,0.14), rgba(255,46,94,0.1)); }
+    .audio-btn.recording { background: linear-gradient(135deg, rgba(255,46,94,0.12), rgba(255,46,94,0.06)); animation: pulse 1.5s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.02)} }
+    .audio-status { text-align: center; margin-top: 16px; font-size: 0.9rem; color: var(--muted); }
+
+    .submit-btn { margin-top: 20px; width: 100%; padding: 16px; background: linear-gradient(135deg, var(--pink), #ff8a4c); color: white; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 1rem; border: none; border-radius: 100px; cursor: pointer; transition: all 0.2s; box-shadow: 0 6px 20px rgba(255,46,94,0.2); }
+    .submit-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 28px rgba(255,46,94,0.3); }
+    .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+    /* RESULT */
+    .result-card { margin-top: 28px; background: white; border: 1.5px solid rgba(0,212,255,0.2); border-radius: 20px; overflow: hidden; display: none; box-shadow: 0 8px 40px rgba(0,212,255,0.08); }
+    .result-card.show { display: block; animation: fadeIn 0.4s ease; }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+    .result-inner { display: grid; grid-template-columns: 140px 1fr; gap: 0; }
+    @media(max-width:600px) { .result-inner { grid-template-columns: 1fr; } }
+    .result-poster { width: 140px; object-fit: cover; }
+    @media(max-width:600px) { .result-poster { width: 100%; height: 200px; } }
+    .result-info { padding: 24px; }
+    .result-tag { font-size: 0.65rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; background: linear-gradient(135deg, var(--cyan), var(--pink)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 8px; }
+    .result-title { font-size: 1.4rem; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 8px; }
+    .result-meta { font-size: 0.85rem; color: var(--muted); margin-bottom: 12px; }
+    .result-overview { font-size: 0.88rem; color: var(--muted); line-height: 1.6; margin-bottom: 16px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+    .result-streaming { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+    .streaming-badge { font-size: 0.72rem; font-weight: 600; padding: 4px 10px; border-radius: 100px; background: rgba(0,212,255,0.1); color: #0099bb; border: 1px solid rgba(0,212,255,0.2); }
+    .result-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+    .action-btn { font-family: 'Space Grotesk', sans-serif; font-size: 0.82rem; font-weight: 600; padding: 8px 18px; border-radius: 100px; border: none; cursor: pointer; transition: all 0.2s; text-decoration: none; }
+    .action-btn.primary { background: linear-gradient(135deg, var(--pink), #ff8a4c); color: white; }
+    .action-btn.secondary { background: rgba(0,0,0,0.06); color: var(--text); }
+    .action-btn:hover { transform: translateY(-1px); }
+
+    /* LOADING */
+    .loading { display: none; text-align: center; padding: 40px; }
+    .loading.show { display: block; }
+    .spinner { width: 40px; height: 40px; border: 3px solid rgba(0,212,255,0.2); border-top-color: var(--cyan); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
+    @keyframes spin { to{transform:rotate(360deg)} }
+    .loading p { color: var(--muted); font-size: 0.9rem; }
+
+    /* ERROR */
+    .error-msg { display: none; background: rgba(255,46,94,0.06); border: 1px solid rgba(255,46,94,0.2); border-radius: 12px; padding: 16px 20px; margin-top: 20px; color: var(--pink); font-size: 0.9rem; }
+    .error-msg.show { display: block; }
+
+    /* HOW IT WORKS */
+    .how { padding: 80px 0; }
+    .how-header { margin-bottom: 48px; }
+    .eyebrow { font-size: 0.72rem; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: var(--cyan); margin-bottom: 10px; }
+    .flow-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 2px; background: linear-gradient(90deg,rgba(0,212,255,0.3),rgba(255,46,94,0.3)); border-radius: 16px; overflow: hidden; padding: 2px; }
+    @media(max-width:768px){.flow-grid{grid-template-columns:1fr 1fr}}
+    @media(max-width:480px){.flow-grid{grid-template-columns:1fr}}
+    .flow-step { background: white; padding: 32px 24px; }
+    .flow-step:first-child{border-radius:14px 0 0 14px}.flow-step:last-child{border-radius:0 14px 14px 0}
+    .flow-num { font-family:'Space Grotesk',sans-serif; font-size:2.8rem; font-weight:800; color:var(--cyan); opacity:0.6; line-height:1; margin-bottom:14px; }
+    .flow-step h3 { font-size:1rem; font-weight:700; margin-bottom:6px; }
+    .flow-step p { font-size:0.85rem; color:var(--muted); line-height:1.6; }
+
+    /* FOOTER */
+    footer { border-top: 1px solid var(--border); padding: 32px 0; position: relative; z-index: 1; }
+    .footer-inner { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+    .footer-logo { font-family:'Space Grotesk',sans-serif; font-size:1rem; font-weight:700; color:var(--muted); }
+    .footer-links { display:flex; gap:20px; }
+    .footer-links a { font-size:0.82rem; color:var(--muted); text-decoration:none; transition:color 0.2s; }
+    .footer-links a:hover { color:var(--cyan); }
+    .footer-copy { font-size:0.78rem; color:#aaa; }
+  </style>
+</head>
+<body>
+
+<div class="ambient"></div>
+
+<div class="container">
+  <nav>
+    <div class="logo">
+      <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="bg-g" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#a8d8ff"/><stop offset="100%" stop-color="#c8b4f0"/></linearGradient>
+          <linearGradient id="tt-g" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#00aaee"/><stop offset="100%" stop-color="#0066cc"/></linearGradient>
+        </defs>
+        <rect width="48" height="48" rx="10" fill="url(#bg-g)" opacity="0.85"/>
+        <rect x="3" y="7" width="4" height="5" rx="1" fill="url(#tt-g)"/>
+        <rect x="3" y="15" width="4" height="5" rx="1" fill="url(#tt-g)"/>
+        <rect x="3" y="23" width="4" height="5" rx="1" fill="url(#tt-g)"/>
+        <rect x="3" y="31" width="4" height="5" rx="1" fill="url(#tt-g)"/>
+        <rect x="3" y="39" width="4" height="5" rx="1" fill="url(#tt-g)"/>
+        <rect x="41" y="7" width="4" height="5" rx="1" fill="url(#tt-g)"/>
+        <rect x="41" y="15" width="4" height="5" rx="1" fill="url(#tt-g)"/>
+        <rect x="41" y="23" width="4" height="5" rx="1" fill="url(#tt-g)"/>
+        <rect x="41" y="31" width="4" height="5" rx="1" fill="url(#tt-g)"/>
+        <rect x="41" y="39" width="4" height="5" rx="1" fill="url(#tt-g)"/>
+        <rect x="9" y="15" width="12" height="2.5" rx="1.2" fill="url(#tt-g)"/>
+        <rect x="14" y="15" width="2.5" height="16" rx="1.2" fill="url(#tt-g)"/>
+        <rect x="23" y="15" width="12" height="2.5" rx="1.2" fill="url(#tt-g)"/>
+        <rect x="28" y="15" width="2.5" height="16" rx="1.2" fill="url(#tt-g)"/>
+      </svg>
+      <span class="logo-text">TrailerTap</span>
+    </div>
+    <button class="nav-btn" onclick="document.getElementById('app').scrollIntoView({behavior:'smooth'})">Try It Now →</button>
+  </nav>
+</div>
+
+<!-- HERO -->
+<div class="container">
+  <section class="hero">
+    <div class="hero-eyebrow">✦ Never Miss a Release</div>
+    <h1>Loved a trailer?<br>
+      <span class="t">T</span><span class="r">r</span><span class="a">a</span><span class="i">i</span><span class="l">l</span><span class="e">e</span><span class="r2">r</span><span class="T2">T</span><span class="a2">a</span><span class="p">p</span><br>
+      <span class="remembers">remembers</span> so<br>you don't have to.
+    </h1>
+    <p class="hero-sub">Identify any trailer in seconds — from audio, screenshots, or social links. Get the release date and a reminder when it's time to watch.</p>
+    <button class="btn-primary" onclick="document.getElementById('app').scrollIntoView({behavior:'smooth'})">Try It Free — No Signup Required →</button>
+    <div class="hero-trust">
+      <span>Free forever</span>
+      <span>No credit card needed</span>
+      <span>Works in seconds</span>
+    </div>
+  </section>
+</div>
+
+<!-- APP -->
+<div class="container" id="app">
+  <section class="app-section">
+    <h2>Identify a Trailer</h2>
+    <p>Choose how you encountered the trailer below.</p>
+
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('screenshot')">📸 Screenshot</button>
+      <button class="tab" onclick="switchTab('link')">🔗 Link</button>
+      <button class="tab" onclick="switchTab('audio')">🎤 Audio</button>
+    </div>
+
+    <!-- SCREENSHOT -->
+    <div class="tab-panel active" id="panel-screenshot">
+      <div class="input-area">
+        <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()">
+          <div class="upload-icon">📷</div>
+          <p><strong>Tap to upload a screenshot</strong></p>
+          <p>or drag and drop an image here</p>
+          <img id="preview-img" src="" alt="Preview" />
+        </div>
+        <input type="file" id="file-input" accept="image/*" onchange="handleFileSelect(event)" />
+        <button class="submit-btn" onclick="identifyScreenshot()">Identify Trailer →</button>
+      </div>
+    </div>
+
+    <!-- LINK -->
+    <div class="tab-panel" id="panel-link">
+      <div class="input-area">
+        <div class="link-input-wrap">
+          <input type="url" class="link-input" id="link-input" placeholder="Paste a YouTube, TikTok, or Instagram link..." />
+        </div>
+        <button class="submit-btn" onclick="identifyLink()">Identify Trailer →</button>
+      </div>
+    </div>
+
+    <!-- AUDIO -->
+    <div class="tab-panel" id="panel-audio">
+      <div class="input-area">
+        <button class="audio-btn" id="audio-btn" onclick="toggleRecording()">
+          <span id="audio-icon">🎤</span>
+          <span id="audio-label">Tap to Record Audio</span>
+        </button>
+        <div class="audio-status" id="audio-status">Hold near your speaker and tap to start listening</div>
+        <button class="submit-btn" id="audio-submit" onclick="identifyAudio()" style="display:none">Identify from Recording →</button>
+      </div>
+    </div>
+
+    <!-- LOADING -->
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <p>Identifying your trailer...</p>
+    </div>
+
+    <!-- ERROR -->
+    <div class="error-msg" id="error-msg"></div>
+
+    <!-- RESULT -->
+    <div class="result-card" id="result-card">
+      <div class="result-inner">
+        <img class="result-poster" id="result-poster" src="" alt="Poster" />
+        <div class="result-info">
+          <div class="result-tag" id="result-tag"></div>
+          <div class="result-title" id="result-title"></div>
+          <div class="result-meta" id="result-meta"></div>
+          <div class="result-overview" id="result-overview"></div>
+          <div class="result-streaming" id="result-streaming"></div>
+          <div class="result-actions">
+            <a href="#" class="action-btn primary" id="result-calendar">📅 Add to Calendar</a>
+            <a href="#" class="action-btn secondary" id="result-tmdb" target="_blank">View on TMDB →</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- HOW IT WORKS -->
+<div class="container">
+  <section class="how">
+    <div class="how-header">
+      <div class="eyebrow">What you get</div>
+      <h2 style="font-size:clamp(1.8rem,4vw,2.5rem);font-weight:800;letter-spacing:-1px;">From trailer to ticket in 4 steps</h2>
+    </div>
+    <div class="flow-grid">
+      <div class="flow-step"><div class="flow-num">01</div><h3>Identify</h3><p>Audio, screenshot, or social link — all three methods work instantly.</p></div>
+      <div class="flow-step"><div class="flow-num">02</div><h3>Enrich</h3><p>Get the poster, rating, verified release date, and where to watch.</p></div>
+      <div class="flow-step"><div class="flow-num">03</div><h3>Save</h3><p>One tap adds the release date to your calendar.</p></div>
+      <div class="flow-step"><div class="flow-num">04</div><h3>Remind</h3><p>Day-before notification with direct links to buy tickets or stream.</p></div>
+    </div>
+  </section>
+</div>
+
+<!-- FOOTER -->
+<div class="container">
+  <footer>
+    <div class="footer-inner">
+      <span class="footer-logo">TrailerTap</span>
+      <div class="footer-links"><a href="#">Privacy</a><a href="#">Terms</a><a href="#">Contact</a></div>
+      <span class="footer-copy">© 2026 TrailerTap</span>
+    </div>
+  </footer>
+</div>
+
+<script>
+  const API_BASE = "https://trailertap-1xf8.onrender.com";
+  let selectedFile = null;
+  let mediaRecorder = null;
+  let audioChunks = [];
+  let recordedBlob = null;
+
+  function switchTab(tab) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelector(`.tab[onclick="switchTab('${tab}')"]`).classList.add('active');
+    document.getElementById(`panel-${tab}`).classList.add('active');
+    hideResult();
+  }
+
+  function handleFileSelect(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    selectedFile = file;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = document.getElementById('preview-img');
+      img.src = e.target.result;
+      img.style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // Drag and drop
+  const zone = document.getElementById('upload-zone');
+  zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('dragover'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+  zone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    zone.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) {
+      selectedFile = file;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const img = document.getElementById('preview-img');
+        img.src = ev.target.result;
+        img.style.display = 'block';
+      };
+      reader.readAsDataURL(file);
+    }
+  });
+
+  function showLoading() {
+    document.getElementById('loading').classList.add('show');
+    document.getElementById('result-card').classList.remove('show');
+    document.getElementById('error-msg').classList.remove('show');
+  }
+
+  function hideLoading() {
+    document.getElementById('loading').classList.remove('show');
+  }
+
+  function showError(msg) {
+    hideLoading();
+    const el = document.getElementById('error-msg');
+    el.textContent = msg;
+    el.classList.add('show');
+  }
+
+  function hideResult() {
+    document.getElementById('result-card').classList.remove('show');
+    document.getElementById('error-msg').classList.remove('show');
+    document.getElementById('loading').classList.remove('show');
+  }
+
+  function showResult(data) {
+    hideLoading();
+    const card = document.getElementById('result-card');
+    document.getElementById('result-tag').textContent = data.media_type === 'tv' ? 'TV SERIES' : 'MOVIE';
+    document.getElementById('result-title').textContent = data.title;
+    document.getElementById('result-meta').textContent = `${data.release_date} · ⭐ ${data.rating}`;
+    document.getElementById('result-overview').textContent = data.overview;
+
+    const poster = document.getElementById('result-poster');
+    if (data.poster_url) {
+      poster.src = data.poster_url;
+      poster.style.display = 'block';
+    } else {
+      poster.style.display = 'none';
+    }
+
+    const streamingEl = document.getElementById('result-streaming');
+    streamingEl.innerHTML = '';
+    if (data.streaming && data.streaming.length > 0) {
+      data.streaming.forEach(s => {
+        const badge = document.createElement('span');
+        badge.className = 'streaming-badge';
+        badge.textContent = s;
+        streamingEl.appendChild(badge);
+      });
+    }
+
+    // Calendar link
+    const calBtn = document.getElementById('result-calendar');
+    if (data.release_date && data.release_date !== 'Unknown') {
+      const date = data.release_date.replace(/-/g, '');
+      const calUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(data.title + ' — Release Day')}&dates=${date}/${date}&details=${encodeURIComponent('Tracked via TrailerTap: trailertap.app')}`;
+      calBtn.href = calUrl;
+      calBtn.target = '_blank';
+    }
+
+    // TMDB link
+    document.getElementById('result-tmdb').href = `https://www.themoviedb.org/${data.media_type}/${data.tmdb_id}`;
+
+    card.classList.add('show');
+    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  async function identifyScreenshot() {
+    if (!selectedFile) { showError('Please select an image first.'); return; }
+    showLoading();
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const base64 = e.target.result.split(',')[1];
+      const type = selectedFile.type;
+      try {
+        const res = await fetch(`${API_BASE}/identify/screenshot`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: base64, type })
+        });
+        const data = await res.json();
+        if (!res.ok) { showError(data.error || 'Could not identify the trailer.'); return; }
+        showResult(data);
+      } catch (err) {
+        showError('Connection error. Please try again.');
+      }
+    };
+    reader.readAsDataURL(selectedFile);
+  }
+
+  async function identifyLink() {
+    const url = document.getElementById('link-input').value.trim();
+    if (!url) { showError('Please paste a link first.'); return; }
+    showLoading();
+    try {
+      const res = await fetch(`${API_BASE}/identify/link`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url })
+      });
+      const data = await res.json();
+      if (!res.ok) { showError(data.error || 'Could not identify from this link.'); return; }
+      showResult(data);
+    } catch (err) {
+      showError('Connection error. Please try again.');
+    }
+  }
+
+  async function toggleRecording() {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+      mediaRecorder.stop();
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorder = new MediaRecorder(stream);
+      audioChunks = [];
+      mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
+      mediaRecorder.onstop = () => {
+        recordedBlob = new Blob(audioChunks, { type: 'audio/mp3' });
+        document.getElementById('audio-btn').classList.remove('recording');
+        document.getElementById('audio-icon').textContent = '✅';
+        document.getElementById('audio-label').textContent = 'Recording complete!';
+        document.getElementById('audio-status').textContent = 'Tap "Identify" to find the trailer.';
+        document.getElementById('audio-submit').style.display = 'block';
+        stream.getTracks().forEach(t => t.stop());
+      };
+      mediaRecorder.start();
+      document.getElementById('audio-btn').classList.add('recording');
+      document.getElementById('audio-icon').textContent = '⏹️';
+      document.getElementById('audio-label').textContent = 'Recording... Tap to Stop';
+      document.getElementById('audio-status').textContent = 'Listening...';
+    } catch (err) {
+      showError('Microphone access denied. Please allow microphone access and try again.');
+    }
+  }
+
+  async function identifyAudio() {
+    if (!recordedBlob) { showError('Please record audio first.'); return; }
+    showLoading();
+    const formData = new FormData();
+    formData.append('audio', recordedBlob, 'recording.mp3');
+    try {
+      const res = await fetch(`${API_BASE}/identify/audio`, {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      if (!res.ok) { showError(data.error || 'Could not identify from audio.'); return; }
+      showResult(data);
+    } catch (err) {
+      showError('Connection error. Please try again.');
+    }
+  }
+</script>
+</body>
+</html>
