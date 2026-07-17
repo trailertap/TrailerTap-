@@ -1,0 +1,32 @@
+services:
+  # Python fingerprinting/trending service — lives in services/py/,
+  # SEPARATE from the existing root app.py (TMDB/Whisper/Vision backend,
+  # which is untouched and keeps running as its own service).
+  - type: web
+    name: trailertap-py
+    runtime: python
+    rootDir: services/py
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --timeout 120
+    disk:
+      name: trailertap-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: DB_DIR
+        value: /var/data
+      - key: ADMIN_TOKEN
+        sync: false
+      - key: FANDANGO_AFFILIATE_ID
+        sync: false          # leave EMPTY until affiliate codes are live
+
+  - type: cron
+    name: trailertap-social-batch
+    runtime: python
+    rootDir: services/py
+    schedule: "0 9 1 * *"    # 9:00 UTC, 1st of each month
+    buildCommand: pip install -r requirements.txt
+    startCommand: python run_social_batch.py
+    envVars:
+      - key: DB_DIR
+        value: /var/data
